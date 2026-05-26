@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>愛之語雙人 3D 沉浸版 (終極完整版)</title>
+    <style>
+        :root {
+            --primary: #ff85a1;
+            --gold: #ffd700;
+            --fav-color: #2ed573;       /* 解謎者代表色 (綠) */
+            --thunder-color: #ff4757;   /* 謎語人代表色 (紅) */
+            --bg-dark: #0f0c29;
+            --pve-blue: #4facfe;        /* PVE 專屬色 */
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: #000; font-family: "Microsoft JhengHei", sans-serif;
+            color: white; user-select: none; -webkit-user-select: none;
+            touch-action: pan-y;
+        }
+
+        /* --- 3D 空間背景 --- */
+        #room-env {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            perspective: 600px; overflow: hidden; z-index: 0;
+            background: linear-gradient(to bottom, #0f0c29, #24243e 60%, #050510);
+        }
+        .floor {
+            position: absolute; width: 3000px; height: 3000px; left: 50%; top: 50%;
+            margin-left: -1500px; margin-top: -300px;
+            transform: rotateX(85deg) translateZ(-100px);
+            background: radial-gradient(circle at center, transparent 10%, #050510 70%), 
+                        linear-gradient(rgba(255, 133, 161, 0.2) 2px, transparent 2px), 
+                        linear-gradient(90deg, rgba(255, 133, 161, 0.2) 2px, transparent 2px);
+            background-size: 100% 100%, 80px 80px, 80px 80px;
+        }
+        .center-glow {
+            position: absolute; width: 400px; height: 400px; left: 50%; top: 50%;
+            margin-left: -200px; margin-top: -50px;
+            background: radial-gradient(circle, rgba(255,215,0,0.15), transparent 60%);
+            transform: rotateX(85deg) translateZ(-98px); border-radius: 50%;
+        }
+
+        /* --- UI 疊層 --- */
+        .app-container {
+            position: absolute; top: 0; left: 0; right: 0; 
+            width: 100%; height: 100%; z-index: 10; 
+            display: flex; flex-direction: column; align-items: center;
+            pointer-events: none; max-width: 1150px; margin: 0 auto;
+        }
+
+        .step-section {
+            display: none; width: 100%; height: 100%;
+            flex-direction: column; align-items: center; justify-content: flex-start;
+            padding-top: 40px; box-sizing: border-box;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .step-section.active { display: flex; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        h2 { color: var(--gold); text-shadow: 0 0 10px rgba(255,215,0,0.5); margin: 0 0 15px 0; font-size: 2rem; pointer-events: auto; text-align: center; }
+        .instruction { background: rgba(0,0,0,0.6); padding: 10px 30px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(5px); font-size: 1.1rem; font-weight: bold; margin-bottom: 20px; pointer-events: auto; text-align: center; }
+
+        /* ================================
+           全新：模式選擇與 PVE 角色選擇樣式
+           ================================ */
+        
+        /* 移除原本的 mode-card-icon 改用圖片容器 */
+        .mode-card-img {
+            width: 100%; height: 220px; /* 留給文字 100px */
+            background-size: cover; background-position: center;
+            z-index: 2; border-radius: 12px 12px 0 0;
+        }
+        .mode-text-box {
+            flex: 1; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; z-index: 2;
+            padding-bottom: 10px;
+        }
+        .mode-card h3 { color: #fff; font-size: 1.5rem; margin: 0 0 5px 0; }
+        .mode-card p { color: #aaa; font-size: 1rem; margin: 0; }
+        /* PVE 傾斜角色選擇卡牌 */
+        .char-container {
+            display: flex; gap: 25px; justify-content: center; 
+            height: 60vh; min-height: 400px; width: 90%; max-width: 900px; 
+            pointer-events: auto; margin-top: 10px;
+        }
+        .char-card {
+            flex: 1; position: relative; overflow: hidden; cursor: pointer;
+            transform: skewX(-8deg); /* 傾斜設計 */
+            border: 3px solid #444; background: #111; border-radius: 12px;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        }
+        .char-bg {
+            position: absolute; top: -10%; left: -20%; width: 140%; height: 120%;
+            background-size: cover; background-position: top center; background-repeat: no-repeat;
+            transform: skewX(8deg); /* 把背景圖轉正 */
+            transition: all 0.4s; opacity: 0.5; filter: grayscale(60%) brightness(0.7);
+        }
+        .char-info {
+            position: absolute; bottom: 0; left: 0; width: 100%; padding: 40px 30px 20px;
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+            transform: skewX(8deg); /* 把文字轉正 */
+            color: white; transition: all 0.4s; text-align: center;
+        }
+        .char-name { font-size: 2.2rem; font-weight: bold; color: #fff; text-shadow: 0 0 10px rgba(0,0,0,0.8); margin-bottom: 10px; transition: 0.3s;}
+        .char-desc { font-size: 1rem; line-height: 1.5; color: #ddd; text-shadow: 0 0 5px #000; opacity: 0; transform: translateY(20px); transition: all 0.3s; font-style: italic; }
+
+        .char-card:hover { 
+            flex: 1.3; border-color: var(--pve-blue); 
+            box-shadow: 0 0 40px rgba(79, 172, 254, 0.5), inset 0 0 20px rgba(79, 172, 254, 0.3); 
+            z-index: 10; 
+        }
+        .char-card:hover .char-bg { opacity: 1; filter: grayscale(0%) brightness(1.1); transform: skewX(8deg) scale(1.05); }
+        .char-card:hover .char-info { padding-bottom: 30px; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(79,172,254,0.4) 100%); }
+        .char-card:hover .char-name { color: var(--gold); text-shadow: 0 0 15px var(--gold); }
+        .char-card:hover .char-desc { opacity: 1; transform: translateY(0); }
+
+
+        /* --- 3D 牌陣容器 --- */
+        .cards-stage { 
+            position: relative; width: 100%; flex: 1; perspective: 1000px; transform-style: preserve-3d; 
+            display: flex; justify-content: center; align-items: center; pointer-events: auto; margin-top: -30px; 
+        }
+
+        /* --- 實體卡牌基礎樣式 --- */
+        .card {
+            position: absolute; width: 180px; height: 350px;
+            cursor: pointer; transform-style: preserve-3d;
+            transform: translateX(100vw) translateZ(-800px) rotateY(-45deg); 
+            opacity: 0; pointer-events: none; z-index: 1; 
+            touch-action: pan-x pan-y; -webkit-tap-highlight-color: transparent; outline: none; 
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .card-visual {
+            position: absolute; width: 100%; height: 100%; top: 0; left: 0;
+            border: 2px solid var(--gold); border-radius: 12px;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2), inset 0 0 15px rgba(0,0,0,0.8);
+            background-color: #111; overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .card.dealing { transition: none !important; animation: dealAnim 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both; }
+        .card.dealt { transform: translateX(var(--tx)) rotateY(var(--ry)) translateZ(var(--tz)); opacity: 1; pointer-events: auto; }
+
+        .card.refreshing {
+            transform: translateX(var(--tx)) rotateY(var(--ry)) translateZ(var(--tz)) scale(0.1) !important;
+            opacity: 0 !important;
+            transition: all 0.2s cubic-bezier(0.5, 0, 0.1, 1) !important;
+            pointer-events: none;
+        }
+        .card.popping-in {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+        }
+
+        @keyframes dealAnim {
+            0% { transform: translateX(100vw) translateZ(-800px) rotateY(-45deg); opacity: 0; }
+            100% { transform: translateX(var(--tx)) rotateY(var(--ry)) translateZ(var(--tz)); opacity: 1; }
+        }
+
+        @media (hover: hover) {
+            .card:hover .card-visual { border-color: #fff; box-shadow: 0 0 30px rgba(255,255,255,0.4); }
+            .card:hover { z-index: 10; }
+            .zoom-btn:hover { background: var(--gold); color: black; transform: scale(1.1); }
+            .refresh-btn:hover:not(.disabled) { background: var(--gold); color: black; transform: translateX(-50%) scale(1.15); box-shadow: 0 0 15px var(--gold); }
+            .btn-main:hover:not(:disabled) { background: var(--primary); color: #000; text-shadow: none; box-shadow: 0 0 25px var(--primary); }
+            .nav-btn:hover { color: var(--primary); transform: translateY(-50%) scale(1.2); }
+            .close-mascot-btn:hover { background: #ff2a3f; transform: scale(1.15); }
+        }
+
+        .card-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.7; z-index: 1; transition: opacity 0.3s; }
+        .card-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.6) 100%); z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+        .card-label { color: var(--gold); font-weight: bold; font-size: 1.3rem; text-shadow: 0 0 10px #000, 0 0 5px var(--gold); text-align: center; padding: 10px; }
+        
+        .zoom-btn { position: absolute; top: 10px; right: 10px; z-index: 10; background: rgba(0,0,0,0.6); border: 1px solid var(--gold); color: white; border-radius: 50%; width: 35px; height: 35px; display: flex; justify-content: center; align-items: center; font-size: 1.1rem; transition: 0.2s; pointer-events: auto; }
+        
+        .refresh-btn { 
+            position: absolute; top: -55px; left: 50%; transform: translateX(-50%); z-index: 10; 
+            background: rgba(20, 20, 30, 0.8); border: 2px solid var(--gold); color: white; 
+            border-radius: 50%; width: 42px; height: 42px; display: flex; justify-content: center; 
+            align-items: center; font-size: 1.2rem; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+            pointer-events: auto;
+        }
+        .refresh-btn.disabled { opacity: 0.3; pointer-events: none; filter: grayscale(100%); border-color: #777; box-shadow: none; }
+
+        /* 選取狀態改綁定至 .card-visual */
+        .card.selected-fav { transform: translateX(var(--tx)) rotateY(var(--ry)) translateZ(calc(var(--tz) + 20px)) translateY(-20px) scale(1.05) !important; z-index: 5 !important; }
+        .card.selected-thunder { transform: translateX(var(--tx)) rotateY(var(--ry)) translateZ(calc(var(--tz) + 20px)) translateY(-20px) scale(1.05) !important; z-index: 5 !important; }
+        
+        .card.selected-fav .card-visual { border-color: var(--fav-color); box-shadow: 0 0 30px rgba(46, 213, 115, 0.6), inset 0 0 15px rgba(46, 213, 115, 0.3); }
+        .card.selected-thunder .card-visual { border-color: var(--thunder-color); box-shadow: 0 0 30px rgba(255, 71, 87, 0.6), inset 0 0 15px rgba(255, 71, 87, 0.3); }
+        
+        .card.dimmed .card-visual { opacity: 0.5 !important; filter: grayscale(80%); border-color: #555; }
+        .card.excluded .card-visual { opacity: 0.3 !important; filter: grayscale(100%); border-color: #333; box-shadow: none; }
+        .card.excluded { pointer-events: none; }
+
+        /* UI 按鈕 */
+        .btn-main { background: rgba(0,0,0,0.6); border: 2px solid var(--primary); color: white; padding: 15px 40px; font-size: 1.2rem; font-weight: bold; border-radius: 30px; cursor: pointer; transition: all 0.3s; pointer-events: auto; backdrop-filter: blur(5px); text-shadow: 0 0 5px #000; box-shadow: 0 0 15px rgba(255, 133, 161, 0.3); margin-bottom: 30px; }
+        .btn-main:disabled { border-color: #555; color: #777; box-shadow: none; cursor: not-allowed; }
+
+        /* 放大遮罩 */
+        .image-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.9); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; animation: fadeIn 0.3s ease; backdrop-filter: blur(5px); pointer-events: auto; }
+        .image-modal img { max-width: 90%; max-height: 80vh; border-radius: 12px; box-shadow: 0 0 30px rgba(255,255,255,0.2); }
+        .close-text { color: white; margin-top: 20px; font-size: 1.2em; cursor: pointer; letter-spacing: 2px; }
+
+        /* 教學與精靈開關專用樣式 */
+        .switches-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
+        .toggle-wrapper { display: flex; align-items: center; justify-content: space-between; gap: 20px; z-index: 20; pointer-events: auto; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(5px); width: 280px; }
+        .switch { position: relative; display: inline-block; width: 52px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.2); transition: .4s; border-radius: 34px; border: 1px solid rgba(255,255,255,0.5); box-sizing: border-box; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary); border-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(24px); }
+
+        /* 圖文輪播教學 Modal */
+        .tutorial-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.85); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(8px); pointer-events: auto; animation: fadeIn 0.3s ease; }
+        .tutorial-content { background: rgba(20, 20, 40, 0.9); border: 2px solid var(--gold); border-radius: 20px; width: 90%; max-width: 700px; padding: 30px; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.8); text-align: center; }
+        .slide { display: none; flex-direction: column; align-items: center; animation: fadeIn 0.3s ease; }
+        .slide.active { display: flex; }
+        .slide img { max-width: 100%; max-height: 45vh; border-radius: 12px; object-fit: contain; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .slide p { font-size: 1.25rem; line-height: 1.6; color: #fff; margin-top: 20px; padding: 0 20px; }
+        .nav-btn { position: absolute; top: 40%; transform: translateY(-50%); background: transparent; border: none; color: var(--gold); font-size: 3rem; cursor: pointer; transition: 0.2s; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
+        .prev-btn { left: 10px; }
+        .next-btn { right: 10px; }
+        .dots-container { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+        .dot { width: 12px; height: 12px; background: rgba(255,255,255,0.3); border-radius: 50%; cursor: pointer; transition: 0.3s; }
+        .dot.active { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+
+        /* 精靈伴遊容器 */
+        #mascot-ui { position: absolute; bottom: 20px; right: 30px; display: none; align-items: flex-end; gap: 10px; z-index: 200; opacity: 0; transform: translateY(20px); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: none; }
+        #mascot-ui.show { opacity: 1; transform: translateY(0); }
+        .mascot-img { width: 140px; height: auto; filter: drop-shadow(0 0 15px rgba(255, 133, 161, 0.5)); animation: floatMascot 3.5s ease-in-out infinite; }
+        
+        .speech-bubble { background: rgba(255,255,255,0.95); color: #2f3542; padding: 15px 25px; border-radius: 20px 20px 0 20px; border: 3px solid var(--gold); box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-weight: bold; font-size: 1.1rem; line-height: 1.6; position: relative; max-width: 280px; margin-bottom: 50px; text-align: left; pointer-events: auto; }
+        .speech-bubble::after { content: ''; position: absolute; bottom: -3px; right: -16px; border-width: 15px 0 0 15px; border-style: solid; border-color: transparent transparent transparent rgba(255,255,255,0.95); display: block; width: 0; filter: drop-shadow(4px 0px 0px var(--gold)); pointer-events: none;}
+        
+        .close-mascot-btn { 
+            position: absolute; top: -12px; left: -12px; background: var(--thunder-color); color: white; border: 2px solid white;
+            border-radius: 50%; width: 26px; height: 26px; display: flex; justify-content: center; align-items: center;
+            font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 8px rgba(0,0,0,0.5); pointer-events: auto;
+            transition: 0.2s;
+        }
+
+        @keyframes floatMascot { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+
+        /* 動態結算畫面專用樣式 */
+        .result-container { background: rgba(0,0,0,0.7); border: 1px solid var(--gold); border-radius: 16px; padding: 20px; width: 90%; max-width: 800px; display: flex; flex-direction: column; backdrop-filter: blur(10px); pointer-events: auto; margin-top: 10px; }
+        .res-section { display: flex; width: 100%; justify-content: space-around; margin-bottom: 15px; }
+        .res-group { display: flex; gap: 15px; align-items: center; justify-content: center; min-width: 250px;}
+        .res-card-wrap { width: 90px; height: 150px; perspective: 600px; }
+        .res-card { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); }
+        .res-card.flipped { transform: rotateY(180deg); }
+        .res-card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 8px; border: 2px solid #555; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .res-card-back { background: repeating-linear-gradient(45deg, #111, #111 10px, #2a2a2a 10px, #2a2a2a 20px); display: flex; justify-content: center; align-items: center; color: var(--gold); font-size: 2.5rem; }
+        .res-card-front { transform: rotateY(180deg); background: #222; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .res-card-front img { width: 100%; height: 100%; object-fit: cover; position: absolute; opacity: 0.6; z-index: 1; }
+        .res-card-label { position: relative; z-index: 2; color: white; font-weight: bold; font-size: 0.8rem; text-shadow: 0 0 5px #000; text-align: center; background: rgba(0,0,0,0.7); width: 100%; padding: 6px 0; }
+        .res-card-wrap.match-fav .res-card-front { border-color: var(--fav-color); box-shadow: 0 0 25px var(--fav-color); }
+        .res-card-wrap.match-thunder .res-card-front { border-color: var(--thunder-color); box-shadow: 0 0 25px var(--thunder-color); }
+        .flying-heart { position: fixed; z-index: 9999; font-size: 2.5rem; pointer-events: none; transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94); text-shadow: 0 0 15px rgba(255, 71, 87, 0.8); }
+
+        /* =========================================================
+           📱 手機版響應式設計 RWD (Swipe 滑動模式)
+           ========================================================= */
+        @media (max-width: 768px) {
+            h1 { font-size: 2.8rem !important; }
+            h2 { font-size: 1.6rem !important; margin-bottom: 10px !important; }
+            .instruction { font-size: 0.95rem; padding: 10px 20px; width: 85%; margin-bottom: 10px; }
+            
+            /* 將模式選擇改為直向或較小卡片 */
+            .mode-card { width: 200px; height: 260px; }
+            .mode-card-icon { font-size: 3rem; }
+            .mode-card h3 { font-size: 1.5rem; }
+
+            /* PVE 角色選擇直向堆疊 */
+            .char-container { flex-direction: column; height: auto; transform: none; }
+            .char-card { transform: skewX(0deg); height: 250px; border-radius: 16px; margin-bottom: 15px; }
+            .char-bg { transform: skewX(0deg); top: 0; left: 0; width: 100%; height: 100%; }
+            .char-info { transform: skewX(0deg); padding: 20px; }
+            .char-card:hover { transform: translateY(-5px); }
+            .char-card:hover .char-bg { transform: scale(1.05); }
+
+            /* 將牌陣改為水平滑動容器 (Scroll Snap) */
+            .cards-stage {
+                justify-content: flex-start; overflow-x: auto; scroll-snap-type: x mandatory;
+                padding: 0 calc(50vw - 90px); -webkit-overflow-scrolling: touch; scrollbar-width: none; 
+                gap: 15px; perspective: none; transform-style: flat; margin-top: 10px;
+                align-items: flex-end; padding-bottom: 30px;
+            }
+            .cards-stage::-webkit-scrollbar { display: none; }
+
+            .card {
+                position: relative; flex: 0 0 180px; scroll-snap-align: center;
+                transform: translateY(100vh);
+            }
+
+            @keyframes dealAnim {
+                0% { transform: translateY(50vh); opacity: 0; }
+                100% { transform: translateY(0); opacity: 1; }
+            }
+
+            .card.dealt { transform: translateY(0); }
+            .card.selected-fav, .card.selected-thunder { transform: translateY(-15px) scale(1.05) !important; }
+            .card.refreshing { transform: scale(0.1) !important; }
+
+            .refresh-btn { top: -45px; width: 36px; height: 36px; font-size: 1rem; }
+            #top-restart-btn, #top-mascot-btn { font-size: 0.85rem !important; padding: 8px 12px !important; }
+
+            .result-container { padding: 15px 10px; }
+            .res-card-wrap { width: 70px; height: 115px; }
+            .res-group { gap: 8px; min-width: auto; }
+            .res-section { gap: 10px; }
+            .result-container h3 { font-size: 0.95rem !important; }
+
+            .tutorial-content { padding: 20px 15px; width: 95%; }
+            .slide img { max-height: 35vh; }
+            .slide p { font-size: 1.05rem; padding: 0 10px; }
+            .nav-btn { font-size: 2.2rem; }
+            
+            .speech-bubble { max-width: 200px; font-size: 0.95rem; padding: 12px 18px; margin-bottom: 30px; }
+            .mascot-img { width: 100px; }
+            #mascot-ui { bottom: 10px; right: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<button id="top-mascot-btn" class="btn-main" style="position: fixed; top: 15px; left: 20px; z-index: 9999; display: none; padding: 10px 20px; margin: 0; font-size: 1rem; width: auto;" onclick="toggleFloatingMascot()">✨ 隱藏精靈</button>
+
+<button id="top-restart-btn" class="btn-main" style="position: fixed; top: 15px; right: 20px; z-index: 9999; display: none; padding: 10px 20px; margin: 0; font-size: 1rem; width: auto;" onclick="goToModeSelect()">🔄 回首頁</button>
+
+<div id="room-env"><div class="floor"></div><div class="center-glow"></div></div>
+
+<div id="tutorial-modal" class="tutorial-modal">
+    <div class="tutorial-content">
+        <button class="nav-btn prev-btn" onclick="changeSlide(-1)">&#10094;</button>
+        <button class="nav-btn next-btn" onclick="changeSlide(1)">&#10095;</button>
+        
+        <div class="slide active">
+            <img src="guide1.png" alt="遊戲說明 1">
+            <p>這是一款雙人互動遊戲。遊戲開始時，先決定由誰擔任本輪的 <span style="color:var(--thunder-color);">「謎語人」</span> 與 <span style="color:var(--fav-color);">「解謎者」</span>，並請兩人共同選擇一張情境卡閱讀。</p>
+        </div>
+        <div class="slide">
+            <img src="guide2.png" alt="遊戲說明 2">
+            <p>接著 <span style="color:var(--thunder-color);">「謎語人」</span> 選出在此情境中 2 張最『喜歡』的愛之語，以及 1 張最『不喜歡』的愛之語。<br><span style="color:#aaa; font-size: 1rem;">(注意別讓 <span style="color:var(--fav-color);">「解謎者」</span> 偷看喔！)</span></p>
+        </div>
+        <div class="slide">
+            <img src="guide3.png" alt="遊戲說明 3">
+            <p><span style="color:var(--thunder-color);">「謎語人」</span> 選完後，請 <span style="color:var(--fav-color);">「解謎者」</span> 點選一張『天使卡』，請 <span style="color:var(--thunder-color);">「謎語人」</span> 回答卡片上的問題，以獲取猜題線索。</p>
+        </div>
+        <div class="slide">
+            <img src="guide4.png" alt="遊戲說明 4">
+            <p>聽完線索後，<span style="color:var(--fav-color);">「解謎者」</span> 選出在此情境中 <span style="color:var(--thunder-color);">「謎語人」</span> 可能的最喜歡的愛之語 2 張，以及最不喜歡的愛之語 1 張。</p>
+        </div>
+
+        <div class="dots-container">
+            <span class="dot active" onclick="setSlide(0)"></span>
+            <span class="dot" onclick="setSlide(1)"></span>
+            <span class="dot" onclick="setSlide(2)"></span>
+            <span class="dot" onclick="setSlide(3)"></span>
+        </div>
+        
+        <button id="btn-start-game" class="btn-main" style="display:none; margin: 20px auto 0 auto;" onclick="closeTutorialAndStart()">我了解了，開始遊戲</button>
+    </div>
+</div>
+
+<div class="app-container">
+    
+    <div id="mode-select-screen" class="step-section active" style="justify-content: center;">
+        <h1 style="font-size: 3.5rem; color: #fff; text-shadow: 0 0 20px var(--primary); font-family: serif; margin-bottom: 20px;">愛之語</h1>
+        <p style="font-size: 1.3rem; color: #ccc; letter-spacing: 3px; margin-bottom: 40px;">選擇遊玩模式</p>
+        
+       <div class="mode-cards-container">
+    <div class="mode-card pvp" onclick="selectMode('PVP')">
+        <div class="mode-card-img" style="background-image: url('pvp_mode.png');"></div>
+        <div class="mode-text-box">
+            <h3>雙人同樂</h3>
+            <p>PVP 模式</p>
+        </div>
+    </div>
+    <div class="mode-card pve" onclick="selectMode('PVE')">
+        <div class="mode-card-img" style="background-image: url('pve_mode.png');"></div>
+        <div class="mode-text-box">
+            <h3>劇情挑戰</h3>
+            <p>PVE 模式</p>
+        </div>
+    </div>
+</div>
+
+    <div id="pve-character-select-screen" class="step-section" style="justify-content: center;">
+        <h2 style="font-size: 2.5rem; margin-bottom: 30px; text-shadow: 0 0 15px var(--pve-blue); color: #fff;">選擇挑戰對象</h2>
+        <div class="char-container">
+            <div class="char-card" onclick="selectNPC('xuchen')">
+                <div class="char-bg" style="background-image: url('pveboy.png');"></div>
+                <div class="char-info">
+                    <div class="char-name">黃旭辰</div>
+                    <div class="char-desc">「我愛詩紜，不管多苦我都會撐過去的。」</div>
+                </div>
+            </div>
+            <div class="char-card" onclick="selectNPC('shiyun')">
+                <div class="char-bg" style="background-image: url('pvegirl.png');"></div>
+                <div class="char-info">
+                    <div class="char-name">賴詩耘</div>
+                    <div class="char-desc">「他應該要體諒我的困擾，而不是整天只想著玩。」</div>
+                </div>
+            </div>
+        </div>
+        <button class="btn-main" style="width: auto; margin-top: 30px; background: rgba(0,0,0,0.6);" onclick="goToModeSelect()">返回上一頁</button>
+    </div>
+
+    <div id="pve-placeholder" class="step-section" style="justify-content: center;">
+        <h2 style="font-size: 2.5rem; margin-bottom: 20px; color: var(--pve-blue);">即將進入 PVE 劇情挑戰</h2>
+        <div class="instruction" style="background: rgba(0,0,0,0.8); border-color: var(--pve-blue);">
+            <p style="font-size: 1.3rem; margin: 10px 0;">你選擇了：<span id="chosen-npc-name" style="color:var(--gold); font-weight:bold; font-size:1.8rem;"></span></p>
+            <p style="color: #aaa; margin: 10px 0;">(後續的劇情與關卡邏輯，將在下一步設定！)</p>
+        </div>
+        <button class="btn-main" onclick="goToModeSelect()">返回首頁</button>
+    </div>
+
+    <div id="step-0" class="step-section" style="justify-content: center;">
+        <h1 style="font-size: 3.5rem; color: #fff; text-shadow: 0 0 20px var(--primary); font-family: serif; margin-bottom: 10px;">愛之語</h1>
+        <p style="font-size: 1.3rem; color: #ccc; letter-spacing: 3px; margin-bottom: 30px;">雙人同樂 PVP 模式</p>
+        
+        <div class="switches-container">
+            <div class="toggle-wrapper">
+                <span style="color: white; font-size: 1.1rem; font-weight: bold;">開啟圖文教學</span>
+                <label class="switch">
+                    <input type="checkbox" id="carousel-toggle" checked onchange="toggleSettings()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-wrapper">
+                <span style="color: white; font-size: 1.1rem; font-weight: bold;">開啟精靈提示</span>
+                <label class="switch">
+                    <input type="checkbox" id="mascot-toggle" checked onchange="toggleSettings()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <button class="btn-main" onclick="checkTutorialAndStart()">進入空間，開始遊戲</button>
+        <button class="btn-main" style="background: rgba(0,0,0,0.6); margin-top: 10px;" onclick="goToModeSelect()">返回模式選擇</button>
+    </div>
+
+    <div id="step-1" class="step-section">
+        <h2>選擇情境</h2><div class="instruction">左右滑動牌卡查看，可點擊上方 🔄 重新抽牌。</div>
+        <div class="cards-stage" id="stage-1"></div><button id="btn-confirm-1" class="btn-main" onclick="goToStep(2)">看完情境了，進入下一步</button>
+    </div>
+
+    <div id="step-2" class="step-section">
+        <h2><span style="color:var(--thunder-color);">謎語人</span> 的喜好</h2><div class="instruction" id="inst-2" style="color: var(--fav-color);">請選擇 2 種你最「喜歡」的愛之語 (0/2)</div>
+        <div class="cards-stage" id="stage-2"></div><button id="btn-confirm-2" class="btn-main" disabled onclick="goToStep(3)">確定選擇</button>
+    </div>
+
+    <div id="step-3" class="step-section">
+        <h2><span style="color:var(--thunder-color);">謎語人</span> 的雷點</h2><div class="instruction" id="inst-3" style="color: var(--thunder-color);">請選擇 1 種你最「不喜歡」的雷點 (0/1)</div>
+        <div class="cards-stage" id="stage-3"></div><button id="btn-confirm-3" class="btn-main" disabled onclick="goToStep(4)">確定選擇，換人</button>
+    </div>
+
+    <div id="step-4" class="step-section">
+        <h2>天使卡提示</h2><div class="instruction" style="color: var(--gold);"><span style="color:var(--fav-color);">解謎者</span> 請接手！抽取一張天使卡請 <span style="color:var(--thunder-color);">謎語人</span> 回答</div>
+        <div class="cards-stage" id="stage-4"></div><button id="btn-confirm-4" class="btn-main" onclick="goToStep(5)">聽完分享了，開始猜測</button>
+    </div>
+
+    <div id="step-5" class="step-section">
+        <h2><span style="color:var(--fav-color);">解謎者</span> 猜測喜好</h2><div class="instruction" id="inst-5" style="color: var(--fav-color);">請猜測 <span style="color:var(--thunder-color);">謎語人</span> 最「喜歡」的 2 種愛之語 (0/2)</div>
+        <div class="cards-stage" id="stage-5"></div><button id="btn-confirm-5" class="btn-main" disabled onclick="goToStep(6)">確定猜測</button>
+    </div>
+
+    <div id="step-6" class="step-section">
+        <h2><span style="color:var(--fav-color);">解謎者</span> 猜測雷點</h2><div class="instruction" id="inst-6" style="color: var(--thunder-color);">請猜測 <span style="color:var(--thunder-color);">謎語人</span> 最「不喜歡」的 1 種雷點 (0/1)</div>
+        <div class="cards-stage" id="stage-6"></div><button id="btn-confirm-6" class="btn-main" disabled onclick="goToStep(7)">確定猜測，揭曉結果！</button>
+    </div>
+
+    <div id="step-7" class="step-section" style="justify-content: flex-start; padding-top:20px;">
+        <h2 style="font-size: 2.2rem; margin-bottom: 5px;">結算報告</h2>
+        <div style="font-size: 1.5rem; font-weight: bold; color: var(--fav-color); margin-bottom: 10px;">
+            默契愛心：<span id="hearts-display" style="letter-spacing: 5px; min-width: 50px; display: inline-block;"></span>
+        </div>
+        
+        <div class="result-container">
+            <div style="display:flex; width: 100%; border-bottom: 1px solid rgba(255,215,0,0.3); padding-bottom:10px; margin-bottom: 15px;">
+                <h3 style="flex:1; color: var(--gold); margin:0; text-align: center; font-size:1.1rem;">👑 <span style="color:var(--thunder-color);">謎語人</span> 的真實心聲</h3>
+                <h3 style="flex:1; color: var(--gold); margin:0; text-align: center; font-size:1.1rem;">🕵️ <span style="color:var(--fav-color);">解謎者</span> 的猜測</h3>
+            </div>
+            <div style="text-align:center; color: var(--fav-color); font-weight:bold; margin-bottom:5px; font-size:1.1rem;">❤️ 喜歡的愛之語區</div>
+            <div class="res-section">
+                <div class="res-group" id="res-a-fav"></div>
+                <div class="res-group" id="res-b-fav"></div>
+            </div>
+            <div style="text-align:center; color: var(--thunder-color); font-weight:bold; margin-bottom:5px; font-size:1.1rem;">⚡ 雷點愛之語區</div>
+            <div class="res-section">
+                <div class="res-group" id="res-a-thunder"></div>
+                <div class="res-group" id="res-b-thunder"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mascot-ui">
+        <div class="speech-bubble">
+            <div class="close-mascot-btn" onclick="closeMascot(event)" title="暫時隱藏精靈">✖</div>
+            <div id="mascot-text"></div>
+        </div>
+        <img src="spirit.png" class="mascot-img" alt="日記精靈">
+    </div>
+
+</div>
+
+<div id="image-modal" class="image-modal" onclick="closeModal()">
+    <img id="modal-image" src="" alt="放大圖片">
+    <div class="close-text">點擊任意處關閉 ✖</div>
+</div>
+
+<script>
+    // --- 🌟 遊戲模式切換邏輯 ---
+    let gameMode = 'PVP'; // 預設 PVP
+    let selectedNPC = null;
+
+    function goToModeSelect() {
+        document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active'));
+        document.getElementById('mode-select-screen').classList.add('active');
+        document.getElementById('top-restart-btn').style.display = 'none';
+        document.getElementById('top-mascot-btn').style.display = 'none';
+        
+        // 重置精靈顯示
+        const mascot = document.getElementById('mascot-ui');
+        mascot.classList.remove('show');
+        mascot.style.display = 'none';
+    }
+
+    function selectMode(mode) {
+        if (mode === 'PVP') {
+            gameMode = 'PVP'; 
+            goToStep(0); 
+        } else {
+            // 點選 PVE 模式，直接跳轉到獨立的 PVE 網頁
+            window.location.href = 'https://trumpetken.github.io/love-language-cardgame-pve/';
+        }
+    }
+
+    // --- 🌟 設定系統 (教學輪播與精靈開關) ---
+    let carouselEnabled = true;
+    let mascotEnabled = true;
+    let currentSlide = 0;
+    let currentStepNum = 0;
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedCarousel = localStorage.getItem('loveLangCarousel');
+        if (savedCarousel !== null) {
+            carouselEnabled = savedCarousel === 'true';
+            document.getElementById('carousel-toggle').checked = carouselEnabled;
+        }
+        const savedMascot = localStorage.getItem('loveLangMascot');
+        if (savedMascot !== null) {
+            mascotEnabled = savedMascot === 'true';
+            document.getElementById('mascot-toggle').checked = mascotEnabled;
+        }
+        updateMascotBtnText();
+    });
+
+    function toggleSettings() {
+        carouselEnabled = document.getElementById('carousel-toggle').checked;
+        localStorage.setItem('loveLangCarousel', carouselEnabled);
+
+        mascotEnabled = document.getElementById('mascot-toggle').checked;
+        localStorage.setItem('loveLangMascot', mascotEnabled);
+        
+        updateMascotBtnText();
+        updateMascot(currentStepNum);
+    }
+
+    function checkTutorialAndStart() {
+        if (carouselEnabled) {
+            document.getElementById('tutorial-modal').style.display = 'flex';
+            setSlide(0);
+        } else {
+            goToStep(1);
+        }
+    }
+
+    function closeTutorialAndStart() {
+        document.getElementById('tutorial-modal').style.display = 'none';
+        document.getElementById('carousel-toggle').checked = false;
+        toggleSettings(); 
+        goToStep(1);
+    }
+
+    function changeSlide(direction) {
+        let slides = document.querySelectorAll('.slide');
+        let newSlide = currentSlide + direction;
+        if (newSlide >= 0 && newSlide < slides.length) setSlide(newSlide);
+    }
+
+    function setSlide(index) {
+        let slides = document.querySelectorAll('.slide');
+        let dots = document.querySelectorAll('.dot');
+        
+        slides.forEach(s => s.classList.remove('active'));
+        dots.forEach(d => d.classList.remove('active'));
+        
+        currentSlide = index;
+        slides[currentSlide].classList.add('active');
+        dots[currentSlide].classList.add('active');
+
+        if (currentSlide === slides.length - 1) {
+            document.getElementById('btn-start-game').style.display = 'block';
+            document.querySelector('.next-btn').style.display = 'none';
+        } else {
+            document.getElementById('btn-start-game').style.display = 'none';
+            document.querySelector('.next-btn').style.display = 'block';
+        }
+        
+        document.querySelector('.prev-btn').style.display = (currentSlide === 0) ? 'none' : 'block';
+    }
+
+    // --- 精靈常駐左上角開關與手動隱藏邏輯 ---
+    function updateMascotBtnText() {
+        let btn = document.getElementById('top-mascot-btn');
+        if(btn) {
+            if (mascotEnabled) {
+                btn.innerHTML = "✨ 隱藏精靈";
+                btn.style.background = "rgba(0,0,0,0.6)";
+                btn.style.borderColor = "var(--gold)";
+            } else {
+                btn.innerHTML = "🧚 呼叫精靈";
+                btn.style.background = "var(--primary)";
+                btn.style.borderColor = "#fff";
+            }
+        }
+    }
+
+    function toggleFloatingMascot() {
+        mascotEnabled = !mascotEnabled;
+        localStorage.setItem('loveLangMascot', mascotEnabled);
+        
+        let toggle = document.getElementById('mascot-toggle');
+        if(toggle) toggle.checked = mascotEnabled;
+
+        updateMascotBtnText();
+        updateMascot(currentStepNum);
+    }
+
+    function closeMascot(event) {
+        if (event) event.stopPropagation();
+        mascotEnabled = false;
+        document.getElementById('mascot-toggle').checked = false;
+        localStorage.setItem('loveLangMascot', 'false');
+        
+        updateMascotBtnText(); 
+        
+        const mascot = document.getElementById('mascot-ui');
+        mascot.classList.remove('show');
+        setTimeout(() => { mascot.style.display = 'none'; }, 400);
+    }
+
+    // 精靈對白庫 
+    const tutorialTexts = {
+        1: "你好！我是日記精靈✨<br>請 <span style='color:var(--thunder-color);'>謎語人</span> 和 <span style='color:var(--fav-color);'>解謎者</span> 一起選擇一個想探討的情境吧！",
+        2: "現在由 <span style='color:var(--thunder-color);'>謎語人</span> 操作喔！<br>請選出 2 張你最「喜歡」的愛之語。",
+        3: "接下來，選出 1 張你最「不喜歡」的雷點吧！這可是大魔王呢😈",
+        4: "換 <span style='color:var(--fav-color);'>解謎者</span> 接手囉！<br>請點選一張天使卡，讓 <span style='color:var(--thunder-color);'>謎語人</span> 回答以獲取線索！",
+        5: "<span style='color:var(--fav-color);'>解謎者</span>，根據剛才的線索，猜猜 <span style='color:var(--thunder-color);'>謎語人</span> 最喜歡哪 2 種愛之語吧！",
+        6: "最後一步！猜出 <span style='color:var(--thunder-color);'>謎語人</span> 心中的大魔王（雷點）是哪一張吧！",
+        7: "結算報告出來囉！<br>快看看你們的默契，並互相分享原因吧！"
+    };
+
+    function updateMascot(stepNum) {
+        const mascot = document.getElementById('mascot-ui');
+        const textEl = document.getElementById('mascot-text');
+        
+        if (!mascotEnabled || stepNum === 0) {
+            mascot.classList.remove('show');
+            setTimeout(() => { mascot.style.display = 'none'; }, 400);
+            return;
+        }
+        
+        if (tutorialTexts[stepNum]) {
+            mascot.style.display = 'flex';
+            setTimeout(() => {
+                mascot.classList.add('show');
+                textEl.innerHTML = tutorialTexts[stepNum];
+            }, 50);
+        }
+    }
+
+
+    // --- 工具與基礎資料 ---
+    const sleep = ms => new Promise(r => setTimeout(r, ms)); 
+
+    const loveLanguages = [
+        { id: 'c1', image: 'words.jpg', label: '肯定的言詞' },
+        { id: 'c2', image: 'gift.jpg', label: '真心的禮物' },
+        { id: 'c3', image: 'service.jpg', label: '服務的行動' },
+        { id: 'c4', image: 'time.jpg', label: '精心的時刻' },
+        { id: 'c5', image: 'touch.jpg', label: '身體的接觸' }
+    ];
+
+    const allScenarios = ['s1.jpg', 's2.jpg', 's3.jpg', 's4.jpg', 's5.jpg', 's6.jpg'];
+    const angelCards = ['angel1.jpg', 'angel2.jpg', 'angel3.jpg', 'angel4.jpg', 'angel5.jpg', 'angel6.jpg'];
+
+    let gameState = { a_fav: [], a_thunder: [], b_fav: [], b_thunder: [] };
+    let currentTempSelection = []; 
+    let cardPools = {}; // 剩餘的卡牌庫 
+
+    const flat3 = [ {tx: -240, ry: 0, tz: 0}, {tx: 0, ry: 0, tz: 0}, {tx: 240, ry: 0, tz: 0} ];
+    const flat5 = [ {tx: -420, ry: 0, tz: 0}, {tx: -210, ry: 0, tz: 0}, {tx: 0, ry: 0, tz: 0}, {tx: 210, ry: 0, tz: 0}, {tx: 420, ry: 0, tz: 0} ];
+
+    // 發牌函數
+    function dealCards(stageId, items, isLoveLang, maxSelect, typeStr, stateKey) {
+        const stage = document.getElementById(stageId);
+        stage.innerHTML = ''; currentTempSelection = [];
+        const btnId = `btn-confirm-${stageId.split('-')[1]}`;
+        const btn = document.getElementById(btnId);
+        if(btn) btn.disabled = (btnId !== 'btn-confirm-1' && btnId !== 'btn-confirm-4');
+
+        const layout = items.length === 3 ? flat3 : flat5;
+        const hasRefresh = (stageId === 'stage-1' || stageId === 'stage-4');
+
+        items.forEach((item, index) => {
+            let isExcluded = false;
+            if (stateKey === 'a_thunder' && gameState.a_fav.includes(item.id)) isExcluded = true;
+            if (stateKey === 'b_thunder' && gameState.b_fav.includes(item.id)) isExcluded = true;
+
+            const card = document.createElement('div');
+            card.className = `card ${isExcluded ? 'excluded' : ''}`;
+            card.style.setProperty('--tx', `${layout[index].tx}px`);
+            card.style.setProperty('--ry', `${layout[index].ry}deg`);
+            card.style.setProperty('--tz', `${layout[index].tz}px`);
+            
+            card.dataset.imgSrc = item.image || item; // 紀錄目前圖片
+
+            const delayMs = index * 150; card.style.animationDelay = `${delayMs}ms`; 
+
+            let innerHTML = '';
+            
+            if (hasRefresh) {
+                innerHTML += `<div class="refresh-btn" title="重抽一次" onclick="event.stopPropagation(); refreshCard(this, '${stageId}')">🔄</div>`;
+            }
+
+            innerHTML += `<div class="card-visual">`;
+            innerHTML += `<img src="${card.dataset.imgSrc}" class="card-bg">`;
+            
+            if (isLoveLang) {
+                innerHTML += `<div class="card-overlay"><div class="card-label">${item.label}</div></div>`;
+                innerHTML += `<div class="zoom-btn" onclick="event.stopPropagation(); openModal('${item.image}')">🔍</div>`;
+                if (!isExcluded) card.onclick = () => handleLoveLangClick(card, item.id, maxSelect, typeStr, btnId, stateKey);
+            } else {
+                innerHTML += `<div class="card-overlay" style="background: rgba(0,0,0,0.3);"><div class="card-label">${item.label || ''}</div></div>`;
+                card.onclick = () => handleScenarioAngelClick(card, card.dataset.imgSrc);
+            }
+            innerHTML += `</div>`; 
+            
+            card.innerHTML = innerHTML; 
+            stage.appendChild(card);
+            
+            setTimeout(() => {
+                card.classList.add('dealing'); 
+                setTimeout(() => { card.classList.remove('dealing'); card.classList.add('dealt'); }, delayMs + 850);
+            }, 50);
+        });
+    }
+
+    // --- 🌟 單次卡牌縮放刷新機制 (Pop-in/out) ---
+    function refreshCard(btnEl, stageId) {
+        let pool = cardPools[stageId];
+        if (!pool || pool.length === 0) return;
+        
+        let cardEl = btnEl.closest('.card');
+        let newItem = pool.pop(); 
+        
+        btnEl.classList.add('disabled'); 
+        
+        cardEl.classList.add('refreshing');
+        
+        setTimeout(() => {
+            let newImgSrc = newItem.image || newItem;
+            cardEl.dataset.imgSrc = newImgSrc;
+            cardEl.querySelector('.card-bg').src = newImgSrc;
+            
+            if(cardEl.classList.contains('selected-fav')) {
+                cardEl.classList.remove('selected-fav');
+                let cBtn = document.getElementById(`btn-confirm-${stageId.split('-')[1]}`);
+                if(cBtn && (stageId !== 'stage-1' && stageId !== 'stage-4')) cBtn.disabled = true;
+            }
+            
+            cardEl.classList.remove('refreshing');
+            cardEl.classList.add('popping-in');
+            
+            setTimeout(() => cardEl.classList.remove('popping-in'), 400);
+            
+            if (pool.length === 0) {
+                document.querySelectorAll(`#${stageId} .refresh-btn`).forEach(b => b.classList.add('disabled'));
+            }
+        }, 200); 
+    }
+
+    function handleScenarioAngelClick(cardEl, imgSrc) {
+        const stage = cardEl.parentElement;
+        stage.querySelectorAll('.card').forEach(c => { c.classList.remove('selected-fav', 'dimmed'); });
+        cardEl.classList.add('selected-fav'); 
+        stage.querySelectorAll('.card').forEach(c => { if (c !== cardEl) c.classList.add('dimmed'); });
+        openModal(cardEl.dataset.imgSrc); 
+    }
+
+    function handleLoveLangClick(cardEl, langId, maxCount, typeStr, btnId, stateKey) {
+        const isSelected = currentTempSelection.includes(langId);
+        const selectedClass = typeStr === 'fav' ? 'selected-fav' : 'selected-thunder';
+        const instEl = document.getElementById(`inst-${btnId.split('-')[2]}`);
+
+        if (isSelected) {
+            currentTempSelection = currentTempSelection.filter(id => id !== langId); 
+            cardEl.classList.remove(selectedClass);
+        } else {
+            if (maxCount === 1) {
+                currentTempSelection = [langId];
+                const stage = cardEl.parentElement;
+                stage.querySelectorAll('.card').forEach(c => c.classList.remove(selectedClass));
+                cardEl.classList.add(selectedClass);
+            } else {
+                if (currentTempSelection.length < maxCount) { 
+                    currentTempSelection.push(langId); 
+                    cardEl.classList.add(selectedClass); 
+                }
+            }
+        }
+
+        const word = typeStr === 'fav' ? '喜歡' : '不喜歡';
+        if(instEl) instEl.textContent = `請選擇 ${maxCount} 種你最「${word}」的愛之語 (${currentTempSelection.length}/${maxCount})`;
+        
+        if (currentTempSelection.length === maxCount) { 
+            document.getElementById(btnId).disabled = false; 
+            gameState[stateKey] = [...currentTempSelection]; 
+        } else { 
+            document.getElementById(btnId).disabled = true; 
+        }
+    }
+
+    function stageIdNum(btnId) { return btnId.split('-')[2]; }
+
+    // ==========================================
+    // 結算與動畫展演核心 
+    // ==========================================
+    function createMiniCardDOM(langId, containerId, uniqueCardId) {
+        const lang = loveLanguages.find(l => l.id === langId);
+        const html = `
+            <div class="res-card-wrap" id="${uniqueCardId}">
+                <div class="res-card">
+                    <div class="res-card-face res-card-back">?</div>
+                    <div class="res-card-face res-card-front">
+                        <img src="${lang.image}">
+                        <div class="res-card-label">${lang.label}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById(containerId).insertAdjacentHTML('beforeend', html);
+    }
+
+    function flyHeartAnimation(startElem, endElem, emojiStr) {
+        return new Promise(resolve => {
+            const startRect = startElem.getBoundingClientRect();
+            const endRect = endElem.getBoundingClientRect();
+            
+            const heart = document.createElement('div');
+            heart.className = 'flying-heart';
+            heart.innerHTML = emojiStr;
+            
+            const startX = startRect.left + startRect.width / 2 - 20; 
+            const startY = startRect.top + startRect.height / 2 - 20;
+            const endX = endRect.left + endRect.width / 2 - 20;
+            const endY = endRect.top + endRect.height / 2 - 20;
+            
+            heart.style.left = startX + 'px';
+            heart.style.top = startY + 'px';
+            document.body.appendChild(heart);
+            
+            setTimeout(() => {
+                heart.style.transform = `translate(${endX - startX}px, ${endY - startY}px) scale(1.5)`;
+                heart.style.opacity = '0';
+            }, 50);
+
+            setTimeout(() => { heart.remove(); resolve(); }, 650);
+        });
+    }
+
+    async function playResultCutscene() {
+        document.getElementById('hearts-display').innerHTML = '';
+        ['res-a-fav', 'res-b-fav', 'res-a-thunder', 'res-b-thunder'].forEach(id => document.getElementById(id).innerHTML = '');
+
+        gameState.a_fav.forEach((id, idx) => createMiniCardDOM(id, 'res-a-fav', `a-f-${idx}`));
+        gameState.b_fav.forEach((id, idx) => createMiniCardDOM(id, 'res-b-fav', `b-f-${idx}`));
+        gameState.a_thunder.forEach((id, idx) => createMiniCardDOM(id, 'res-a-thunder', `a-t-${idx}`));
+        gameState.b_thunder.forEach((id, idx) => createMiniCardDOM(id, 'res-b-thunder', `b-t-${idx}`));
+
+        let currentHearts = 0;
+        await sleep(600); 
+
+        // 翻開喜歡區
+        const favCards = document.querySelectorAll('#res-a-fav .res-card, #res-b-fav .res-card');
+        favCards.forEach(c => c.classList.add('flipped'));
+        await sleep(1000); 
+
+        for (let i = 0; i < gameState.b_fav.length; i++) {
+            let bAnsId = gameState.b_fav[i];
+            let aIndexMatch = gameState.a_fav.indexOf(bAnsId);
+            
+            if (aIndexMatch !== -1) { 
+                let aCardWrap = document.getElementById(`a-f-${aIndexMatch}`);
+                let bCardWrap = document.getElementById(`b-f-${i}`);
+                
+                await flyHeartAnimation(aCardWrap, bCardWrap, '❤️');
+                bCardWrap.classList.add('match-fav'); 
+                currentHearts++;
+                document.getElementById('hearts-display').innerHTML = '❤️'.repeat(currentHearts);
+                await sleep(300); 
+            }
+        }
+
+        await sleep(800); 
+
+        // 翻開雷點區
+        const thunderCards = document.querySelectorAll('#res-a-thunder .res-card, #res-b-thunder .res-card');
+        thunderCards.forEach(c => c.classList.add('flipped'));
+        await sleep(1000);
+
+        for (let i = 0; i < gameState.b_thunder.length; i++) {
+            let bAnsId = gameState.b_thunder[i];
+            let aIndexMatch = gameState.a_thunder.indexOf(bAnsId);
+            
+            if (aIndexMatch !== -1) {
+                let aCardWrap = document.getElementById(`a-t-${aIndexMatch}`);
+                let bCardWrap = document.getElementById(`b-t-${i}`);
+                
+                flyHeartAnimation(aCardWrap, bCardWrap, '❤️');
+                await sleep(150);
+                await flyHeartAnimation(aCardWrap, bCardWrap, '❤️');
+                
+                bCardWrap.classList.add('match-thunder'); 
+                currentHearts += 2;
+                document.getElementById('hearts-display').innerHTML = '❤️'.repeat(currentHearts);
+            }
+        }
+
+        if (currentHearts === 0) {
+            document.getElementById('hearts-display').innerHTML = '<span style="font-size:1rem; color:#ccc;">💔 沒猜中，要多溝通喔</span>';
+        }
+    }
+
+    // --- 路由器 ---
+    function goToStep(stepNum) {
+        currentStepNum = stepNum;
+        document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active'));
+        document.getElementById(`step-${stepNum}`).classList.add('active');
+
+        // 控制常駐上方按鈕
+        document.getElementById('top-restart-btn').style.display = (stepNum === 0) ? 'none' : 'block';
+        document.getElementById('top-mascot-btn').style.display = (stepNum === 0) ? 'none' : 'block';
+
+        updateMascotBtnText();
+        updateMascot(stepNum);
+
+        if (stepNum === 1) {
+            gameState = { a_fav: [], a_thunder: [], b_fav: [], b_thunder: [] };
+            let shuffled = [...allScenarios].sort(() => 0.5 - Math.random());
+            let onTable = shuffled.slice(0, 3);
+            cardPools['stage-1'] = shuffled.slice(3); // 剩餘進牌庫
+            dealCards('stage-1', onTable, false);
+        }
+        else if (stepNum === 2) dealCards('stage-2', loveLanguages, true, 2, 'fav', 'a_fav');
+        else if (stepNum === 3) dealCards('stage-3', loveLanguages, true, 1, 'thunder', 'a_thunder');
+        else if (stepNum === 4) {
+            let shuffled = [...angelCards].sort(() => 0.5 - Math.random());
+            let onTable = shuffled.slice(0, 3);
+            cardPools['stage-4'] = shuffled.slice(3); // 剩餘進牌庫
+            dealCards('stage-4', onTable, false);
+        }
+        else if (stepNum === 5) dealCards('stage-5', loveLanguages, true, 2, 'fav', 'b_fav');
+        else if (stepNum === 6) dealCards('stage-6', loveLanguages, true, 1, 'thunder', 'b_thunder');
+        else if (stepNum === 7) playResultCutscene(); 
+    }
+
+    function openModal(imgSrc) { document.getElementById('modal-image').src = imgSrc; document.getElementById('image-modal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('image-modal').style.display = 'none'; }
+
+</script>
+
+</body>
+</html>
