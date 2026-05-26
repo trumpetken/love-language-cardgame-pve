@@ -425,14 +425,14 @@
                 ans: ["c2", "c1"], 
                 cards: [
                     { 
-                        image: "angel1.jpg", label: "提問一", dialog: "你覺得詩耘是重視儀式感的人嗎？為什麼？", 
+                        image: "angel7.jpg", label: "提問一", dialog: "你覺得詩耘是重視儀式感的人嗎？為什麼？", 
                         replySequence: [
                             "她超級重視！我記得剛交往一個月的時候，我送了她一個小小的扭蛋吊飾，並附上一張滿滿一頁的『手寫卡片』。",
                             "結果她竟然買了一個漂亮的鐵盒專門收藏，還說我卡片裡寫的那些稱讚她的話，讓她覺得自己很特別、很有價值。"
                         ]
                     },
                     { 
-                        image: "angel2.jpg", label: "提問二", dialog: "你記得之前情人節的時候，她曾因為哪些舉動而開心嗎？", 
+                        image: "angel8.jpg", label: "提問二", dialog: "你記得之前情人節的時候，她曾因為哪些舉動而開心嗎？", 
                         replySequence: [
                             "上次情人節，我偷偷訂製了印有我們名字縮寫的手工巧克力給她，",
                             "然後在吃飯時，我很認真地看著她的眼睛對她說：『跟妳在一起的每一天我都覺得很幸運』。她那天聽完眼眶都紅了，笑容一整天都沒停過。"
@@ -677,7 +677,7 @@
             onClick: () => handlePveOptionClick('scenarioB', npc.optB_title)
         });
 
-        let seq = [{ speaker: `<span style="color:var(--gold);">${npc.partner}</span>`, text: "還有什麼我可以幫忙的嗎？", options: options }];
+        let seq = [{ speaker: `<span style="color:var(--gold);">${npc.partner}</span>`, text: "第二件事是，他最近趕期末報告都熬夜到好晚，看起來超級累的。在這種時候，我到底能為他做些什麼才好？", options: options }];
         startPveDialog(seq, true);
     }
 
@@ -720,7 +720,7 @@
     function handlePveOptionClick(key, title) {
         document.getElementById('story-options-container').style.display = 'none';
         currentPveSequence = [{
-            speaker: '<span style="color:#aaa;">好友(你)</span>',
+            speaker: '<span style="color:#aaa;">我</span>',
             text: `「那我們先來討論『${title}』吧。先根據你的印象，回想一些事情。」`,
             onEnd: () => startScenario(key) 
         }];
@@ -757,7 +757,7 @@
     function handlePveAngelClick(cardData) {
         const npc = pveData[currentNpcId];
         let seq = [];
-        seq.push({ speaker: `<span style="color:#aaa;">好友(你) 的提問</span>`, text: `「${cardData.dialog}」` });
+        seq.push({ speaker: `<span style="color:#aaa;">我的提問</span>`, text: `「${cardData.dialog}」` });
         
         cardData.replySequence.forEach(line => {
             seq.push({ speaker: `<span style="color:var(--gold);">${npc.partner} 的回想</span>`, text: `「${line}」` });
@@ -781,7 +781,7 @@
         document.getElementById('cards-title').style.display = 'block';
         document.getElementById('cards-inst').style.display = 'block';
         
-        document.getElementById('cards-title').innerText = `軍師的建議`;
+        document.getElementById('cards-title').innerText = `我的建議`;
         document.getElementById('cards-inst').innerHTML = `請根據線索，選出 <span style="color:var(--fav-color);">2 張</span> ${npc.name} 渴望的愛之語 (0/2)`;
         
         dealCards('stage-main', loveLanguages, true);
@@ -807,9 +807,9 @@
         let sB = pveSuggestions[selectedLoveLangs[1]];
 
         let seq = [
-            { speaker: `<span style="color:#aaa;">好友(你) 的分析</span>`, text: `「聽你這樣說，我覺得 ${npc.name} 的愛之語應該是『${sA.title}』和『${sB.title}』喔！」` },
-            { speaker: `<span style="color:#aaa;">好友(你) 的分析</span>`, text: `「你可以 <span style="color:var(--fav-color);">${sA.text}</span>，」` },
-            { speaker: `<span style="color:#aaa;">好友(你) 的分析</span>`, text: `「還有也可以 <span style="color:var(--fav-color);">${sB.text}</span>。」`, 
+            { speaker: `<span style="color:#aaa;">我的分析</span>`, text: `「聽你這樣說，我覺得 ${npc.name} 的愛之語應該是『${sA.title}』和『${sB.title}』喔！」` },
+            { speaker: `<span style="color:#aaa;">我的分析</span>`, text: `「你可以 <span style="color:var(--fav-color);">${sA.text}</span>，」` },
+            { speaker: `<span style="color:#aaa;">我的分析</span>`, text: `「還有也可以 <span style="color:var(--fav-color);">${sB.text}</span>。」`, 
               options: [{ label: "幾天過後... 查看對方回報", onClick: () => showFinalResult() }] 
             }
         ];
