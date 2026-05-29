@@ -663,21 +663,41 @@
     function showNPCMenu(e) {
         if(e) e.stopPropagation(); playSFX();
         if(!currentNpcId) { goToCharSelect(); return; }
-        
+
         const npc = pveData[currentNpcId];
+        const solvedA = pveHistory[currentNpcId].includes('scenarioA');
+        const solvedB = pveHistory[currentNpcId].includes('scenarioB');
+        const allSolved = solvedA && solvedB;
+
+        // 兩個事件都完美完成後，再回到煩惱清單或重新選擇挑戰路線時，顯示完成訊息
+        if (allSolved) {
+            let seq = [{
+                speaker: `<span style="color:var(--gold);">${npc.partner}</span>`,
+                text: "謝謝你，問題都解決了!"
+            }];
+            startPveDialog(seq, true);
+            return;
+        }
+
         let options = [];
         options.push({
-            label: pveHistory[currentNpcId].includes('scenarioA') ? `✔️ ${npc.optA_title} (已解決)` : `❓ ${npc.optA_title}`,
-            className: pveHistory[currentNpcId].includes('scenarioA') ? 'completed' : '',
+            label: solvedA ? `✔️ ${npc.optA_title} (已解決)` : `❓ ${npc.optA_title}`,
+            className: solvedA ? 'completed' : '',
             onClick: () => handlePveOptionClick('scenarioA', npc.optA_title)
         });
         options.push({
-            label: pveHistory[currentNpcId].includes('scenarioB') ? `✔️ ${npc.optB_title} (已解決)` : `❓ ${npc.optB_title}`,
-            className: pveHistory[currentNpcId].includes('scenarioB') ? 'completed' : '',
+            label: solvedB ? `✔️ ${npc.optB_title} (已解決)` : `❓ ${npc.optB_title}`,
+            className: solvedB ? 'completed' : '',
             onClick: () => handlePveOptionClick('scenarioB', npc.optB_title)
         });
 
-        let seq = [{ speaker: `<span style="color:var(--gold);">${npc.partner}</span>`, text: "第二件事是，他最近趕期末報告都熬夜到好晚，看起來超級累的。在這種時候，我到底能為他做些什麼才好？", options: options }];
+        // 根據目前選擇的路線，回到該角色正確的煩惱清單節點台詞
+        const listNodeText = npc.introSequence[npc.introSequence.length - 1].text;
+        let seq = [{ 
+            speaker: `<span style="color:var(--gold);">${npc.partner}</span>`, 
+            text: listNodeText, 
+            options: options 
+        }];
         startPveDialog(seq, true);
     }
 
